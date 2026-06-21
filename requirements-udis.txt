@@ -24,6 +24,6 @@
 #   - tensorlayer / VGG19 weights are NOT needed: they are only used by the
 #     Stage-2 training loss. The reconstruction inference import of vgg19 is
 #     made lazy so inference runs without them.
-#   - Pretrained checkpoints are expected under D:\HFModels:
-#       Stage 1 homography:      D:\HFModels\checkpoints_homo\model.ckpt-1000000
-#       Stage 2 reconstruction:  D:\HFModels\checkpoints\model.ckpt-200000
+#   - Pretrained checkpoints are bundled in this repo:
+#       Stage 1 homography:      ImageAlignment/Codes/checkpoints_homo/model.ckpt-1000000
+#       Stage 2 reconstruction:  ImageReconstruction/Codes/checkpoints/model.ckpt-200000

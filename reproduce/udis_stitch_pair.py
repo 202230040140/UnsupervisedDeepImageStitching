@@ -13,13 +13,17 @@ import sys
 import cv2
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 ALIGN_CODES = os.path.join(REPO_ROOT, 'ImageAlignment', 'Codes')
 RECON_CODES = os.path.join(REPO_ROOT, 'ImageReconstruction', 'Codes')
 
-DEFAULT_HOMO_CKPT_DIR = r'D:\HFModels\checkpoints_homo'
-DEFAULT_HOMO_CKPT_STEP = '1000000'
-DEFAULT_RECON_CKPT_DIR = r'D:\HFModels\checkpoints'
-DEFAULT_RECON_CKPT_STEP = '200000'
+from reproduce.paths import HOMO_CKPT_DIR, RECON_CKPT_DIR, HOMO_CKPT_STEP, RECON_CKPT_STEP
+
+DEFAULT_HOMO_CKPT_DIR = HOMO_CKPT_DIR
+DEFAULT_HOMO_CKPT_STEP = HOMO_CKPT_STEP
+DEFAULT_RECON_CKPT_DIR = RECON_CKPT_DIR
+DEFAULT_RECON_CKPT_STEP = RECON_CKPT_STEP
 
 
 def run_stage(script_dir, script, env_overrides):

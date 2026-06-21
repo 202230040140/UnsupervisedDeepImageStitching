@@ -13,12 +13,12 @@ under `outputs/`, which is git-ignored.
 
 ## Pretrained models
 
-Expected under `D:\HFModels` (override with CLI flags if elsewhere):
+Bundled inside this repository (override with CLI flags if elsewhere):
 
 | Stage | Checkpoint |
 |-------|------------|
-| 1 (homography)     | `D:\HFModels\checkpoints_homo\model.ckpt-1000000` |
-| 2 (reconstruction) | `D:\HFModels\checkpoints\model.ckpt-200000` |
+| 1 (homography)     | `ImageAlignment/Codes/checkpoints_homo/model.ckpt-1000000` |
+| 2 (reconstruction) | `ImageReconstruction/Codes/checkpoints/model.ckpt-200000` |
 
 TensorLayer / VGG19 weights are **not** needed for inference (they are only used
 by the Stage-2 training loss; the import is made lazy).

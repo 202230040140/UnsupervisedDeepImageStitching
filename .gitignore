@@ -5,7 +5,7 @@ results/
 ImageAlignment/output/
 ImageReconstruction/results/
 
-# Pretrained checkpoints / summaries / model weights (kept outside the repo)
+# Pretrained checkpoints / summaries / model weights (large files, git-ignored)
 checkpoints/
 checkpoints_homo/
 summary/

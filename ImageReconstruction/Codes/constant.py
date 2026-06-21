@@ -1,5 +1,7 @@
 import os
 
+_CODES_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # All paths can be overridden via environment variables so the reproduction
 # orchestrator (reproduce/run_udis.py) can drive the same scripts for both
 # UDIS-D and StitchBench without editing this file.
@@ -23,7 +25,7 @@ TEST_BATCH_SIZE = 1
 ITERATIONS = 200000
 
 # checkpoints path (folder holding model.ckpt-* of the Stage-2 reconstruction model)
-SNAPSHOT_DIR = os.environ.get('UDIS_RECON_CKPT_DIR', './checkpoints')
+SNAPSHOT_DIR = os.environ.get('UDIS_RECON_CKPT_DIR', os.path.join(_CODES_DIR, 'checkpoints'))
 
 # checkpoint step suffix, i.e. model.ckpt-<STEP>
 RECON_CKPT_STEP = os.environ.get('UDIS_RECON_CKPT_STEP', '200000')

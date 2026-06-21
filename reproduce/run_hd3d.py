@@ -28,15 +28,16 @@ from reproduce.hd3d_eval import (
     load_lpips_metric,
     load_niqe_metric,
 )
+from reproduce.paths import HOMO_CKPT_DIR, RECON_CKPT_DIR, HOMO_CKPT_STEP, RECON_CKPT_STEP
 
 METHOD = 'UDIS'
 DEFAULT_MANIFEST = r'D:\HD3D_Result\_work\manifest.csv'
 DEFAULT_RESULT_ROOT = r'D:\HD3D_Result'
 DEFAULT_WORK_ROOT = r'D:\HD3D_Result\_work'
-DEFAULT_HOMO_CKPT_DIR = r'D:\HFModels\checkpoints_homo'
-DEFAULT_HOMO_CKPT_STEP = '1000000'
-DEFAULT_RECON_CKPT_DIR = r'D:\HFModels\checkpoints'
-DEFAULT_RECON_CKPT_STEP = '200000'
+DEFAULT_HOMO_CKPT_DIR = HOMO_CKPT_DIR
+DEFAULT_HOMO_CKPT_STEP = HOMO_CKPT_STEP
+DEFAULT_RECON_CKPT_DIR = RECON_CKPT_DIR
+DEFAULT_RECON_CKPT_STEP = RECON_CKPT_STEP
 
 PER_PAIR_FIELDS = [
     'scene', 'pair_id', 'pair_name', 'method', 'status', 'failure_reason',
