@@ -12,10 +12,11 @@ import skimage
 
 os.environ['CUDA_DEVICES_ORDER'] = "PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES'] = constant.GPU
-train_folder = constant.TRAIN_FOLDER
 test_folder = constant.TEST_FOLDER
-snapshot_dir =  constant.SNAPSHOT_DIR + '/model.ckpt-1000000'
+snapshot_dir = constant.SNAPSHOT_DIR + '/model.ckpt-' + str(constant.HOMO_CKPT_STEP)
 batch_size = constant.TEST_BATCH_SIZE
+# output directory for the coarsely aligned images + content masks
+warp_out = constant.WARP_OUT
 
 # define dataset
 with tf.name_scope('dataset'):
@@ -48,79 +49,49 @@ with tf.Session(config=config) as sess:
     restore_var = [v for v in tf.global_variables()]
     loader = tf.train.Saver(var_list=restore_var)
 
+    def make_dirs(base):
+        for sub in ['warp1', 'warp2', 'mask1', 'mask2']:
+            d = os.path.join(base, sub)
+            if not os.path.exists(d):
+                os.makedirs(d)
+
     def inference_func(ckpt):
         print("============")
         print(ckpt)
         load(loader, sess, ckpt)
         print("============")
-        
-        print("------------------------------------------")
-        print("generating aligned images for training set")
-        # dataset
-        data_loader = DataLoader(train_folder)
-        length = 10440
-        for i in range(0, length):
-            input_clip = np.expand_dims(data_loader.get_data_clips(i, None, None), axis=0)
-            size_clip = np.expand_dims(data_loader.get_size_clips(i), axis=0)
-            
-            coarsealignment = sess.run(test_coarsealignment, feed_dict={test_inputs: input_clip, test_size: size_clip})
-            
-            coarsealignment = coarsealignment[0]
-            warp1 = (coarsealignment[...,0:3]+1.)*127.5
-            warp2 = (coarsealignment[...,3:6]+1.)*127.5
-            mask1 = coarsealignment[...,6:9] * 255
-            mask2 = coarsealignment[...,9:12] * 255
-            
-            path1 = '../output/training/warp1/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path1, warp1)
-            path2 = '../output/training/warp2/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path2, warp2)
-            path3 = '../output/training/mask1/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path3, mask1)
-            path4 = '../output/training/mask2/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path4, mask2)
-                   
-            print('i = {} / {}'.format(i+1, length))
 
-        print("-----------training set done--------------")
         print("------------------------------------------")
-        
-        print()
-        print()
-        
-        print("------------------------------------------")
-        print("generating aligned images for testing set")
-        # dataset
+        print("generating aligned images + masks")
+        print("input  : {}".format(test_folder))
+        print("output : {}".format(warp_out))
+        make_dirs(warp_out)
+
         data_loader = DataLoader(test_folder)
-        length = 1106
+        length = data_loader.datas['input1']['length']
+        if constant.LIMIT > 0:
+            length = min(length, constant.LIMIT)
         for i in range(0, length):
             input_clip = np.expand_dims(data_loader.get_data_clips(i, None, None), axis=0)
             size_clip = np.expand_dims(data_loader.get_size_clips(i), axis=0)
-            
-            coarsealignment = sess.run(test_coarsealignment, feed_dict={test_inputs: input_clip, test_size: size_clip})
-            
-            coarsealignment = coarsealignment[0]
-            warp1 = (coarsealignment[...,0:3]+1.)*127.5
-            warp2 = (coarsealignment[...,3:6]+1.)*127.5
-            mask1 = coarsealignment[...,6:9] * 255
-            mask2 = coarsealignment[...,9:12] * 255
-            
-            path1 = '../output/testing/warp1/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path1, warp1)
-            path2 = '../output/testing/warp2/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path2, warp2)
-            path3 = '../output/testing/mask1/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path3, mask1)
-            path4 = '../output/testing/mask2/' + str(i+1).zfill(6) + ".jpg"
-            cv2.imwrite(path4, mask2)
-                     
-            print('i = {} / {}'.format(i+1, length))
 
-        print("-----------testing set done--------------")
+            coarsealignment = sess.run(test_coarsealignment, feed_dict={test_inputs: input_clip, test_size: size_clip})
+
+            coarsealignment = coarsealignment[0]
+            warp1 = (coarsealignment[..., 0:3] + 1.) * 127.5
+            warp2 = (coarsealignment[..., 3:6] + 1.) * 127.5
+            mask1 = coarsealignment[..., 6:9] * 255
+            mask2 = coarsealignment[..., 9:12] * 255
+
+            name = str(i + 1).zfill(6) + ".jpg"
+            cv2.imwrite(os.path.join(warp_out, 'warp1', name), warp1)
+            cv2.imwrite(os.path.join(warp_out, 'warp2', name), warp2)
+            cv2.imwrite(os.path.join(warp_out, 'mask1', name), mask1)
+            cv2.imwrite(os.path.join(warp_out, 'mask2', name), mask2)
+
+            print('i = {} / {}'.format(i + 1, length))
+
+        print("-----------done--------------")
         print("------------------------------------------")
 
-     
     inference_func(snapshot_dir)
-
-
-

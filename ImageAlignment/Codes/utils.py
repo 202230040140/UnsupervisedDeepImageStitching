@@ -68,7 +68,7 @@ class DataLoader(object):
     def setup(self):
         datas = glob.glob(os.path.join(self.dir, '*'))
         for data in sorted(datas):
-            data_name = data.split('/')[-1]
+            data_name = os.path.basename(data)
             if data_name == 'input1' or data_name == 'input2' :
                 self.datas[data_name] = {}
                 self.datas[data_name]['path'] = data

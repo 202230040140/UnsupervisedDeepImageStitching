@@ -12,8 +12,9 @@ import constant
 os.environ['CUDA_DEVICES_ORDER'] = "PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES'] = constant.GPU
 test_folder = constant.TEST_FOLDER
-snapshot_dir =  constant.SNAPSHOT_DIR + '/model.ckpt-200000'
+snapshot_dir = constant.SNAPSHOT_DIR + '/model.ckpt-' + str(constant.RECON_CKPT_STEP)
 batch_size = constant.TEST_BATCH_SIZE
+result_out = constant.RESULT_OUT
 
 
 
@@ -52,21 +53,23 @@ with tf.Session(config=config) as sess:
         print(ckpt)
         load(loader, sess, ckpt)
         print("============")
-        length = 1106
-        
+        # number of pairs derived from the dataset instead of being hardcoded
+        length = data_loader.images['warp1']['length']
+        if constant.LIMIT > 0:
+            length = min(length, constant.LIMIT)
+        if not os.path.exists(result_out):
+            os.makedirs(result_out)
+
         for i in range(0, length):
             input_clip = np.expand_dims(data_loader.get_image_clips(i), axis=0)
             _, stitch_result = sess.run([lr_test_stitched, hr_test_stitched], feed_dict={test_inputs: input_clip})
             
             stitch_result = (stitch_result+1) * 127.5    
             stitch_result = stitch_result[0]
-            path = "../results/" + str(i+1).zfill(6) + ".jpg"
+            path = os.path.join(result_out, str(i+1).zfill(6) + ".jpg")
             cv2.imwrite(path, stitch_result)
-            print('i = {} / {}'.format( i, length))
+            print('i = {} / {}'.format( i+1, length))
             
         print("===================DONE!==================")  
 
     inference_func(snapshot_dir)
-
-    
-

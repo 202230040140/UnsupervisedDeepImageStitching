@@ -45,7 +45,7 @@ class DataLoader(object):
     def setup(self):
         images = glob.glob(os.path.join(self.dir, '*'))
         for image in sorted(images):
-            image_name = image.split('/')[-1]
+            image_name = os.path.basename(image)
             if image_name == 'warp1' or image_name == 'warp2' or image_name == 'mask1' or image_name == 'mask2':
                 self.images[image_name] = {}
                 self.images[image_name]['path'] = image

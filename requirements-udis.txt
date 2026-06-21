@@ -1,0 +1,29 @@
+# Environment for reproducing UDIS (inference only) on Windows + RTX GPU.
+#
+# The original code targets TensorFlow 1.x / TensorLayer / python 3.6. The
+# cleanest way to get a working TF1.x + CUDA stack on modern Windows is via
+# conda (it bundles the CUDA 10 runtime, so the host NVIDIA driver version
+# does not matter). PyPI/pip is not required.
+#
+# Recreate the env with:
+#
+#   conda create -y -n udis python=3.7
+#   conda install -y -n udis -c conda-forge tensorflow-gpu=1.15
+#   conda install -y -n udis -c conda-forge "scikit-image=0.16.2" opencv "tensorflow-estimator=1.15"
+#
+# Verified working versions in this env:
+#   python                3.7
+#   tensorflow-gpu        1.15.0   (cudatoolkit 10.0 + cudnn 7 bundled by conda)
+#   tensorflow-estimator  1.15.0   (must match TF; conda-forge otherwise pulls 2.5)
+#   numpy                 1.21.6
+#   scipy                 1.7.3
+#   scikit-image          0.16.2   (still provides skimage.measure.compare_psnr/compare_ssim)
+#   opencv (cv2)          3.4.2
+#
+# Notes:
+#   - tensorlayer / VGG19 weights are NOT needed: they are only used by the
+#     Stage-2 training loss. The reconstruction inference import of vgg19 is
+#     made lazy so inference runs without them.
+#   - Pretrained checkpoints are expected under D:\HFModels:
+#       Stage 1 homography:      D:\HFModels\checkpoints_homo\model.ckpt-1000000
+#       Stage 2 reconstruction:  D:\HFModels\checkpoints\model.ckpt-200000

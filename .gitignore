@@ -1,0 +1,29 @@
+# Reproduction artifacts (panoramas, warped images, masks, metrics, logs)
+outputs/
+output/
+results/
+ImageAlignment/output/
+ImageReconstruction/results/
+
+# Pretrained checkpoints / summaries / model weights (kept outside the repo)
+checkpoints/
+checkpoints_homo/
+summary/
+ImageAlignment/Codes/checkpoints_homo/
+ImageAlignment/Codes/summary/
+ImageReconstruction/Codes/checkpoints/
+ImageReconstruction/Codes/summary/
+ImageReconstruction/vgg19/
+*.ckpt
+*.ckpt-*
+*.npy
+*.npz
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/

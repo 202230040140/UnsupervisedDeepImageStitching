@@ -1,7 +1,9 @@
 import tensorflow as tf
 import numpy as np
 import reconstruction_net
-import vgg19
+# NOTE: vgg19 (and its tensorlayer dependency / VGG weights) are only needed for
+# the Stage-2 training perceptual loss. Import it lazily so that inference can
+# run without tensorlayer or the VGG19 npz file installed.
 
 
 
@@ -49,6 +51,7 @@ def reconstruction(inputs):
 
 
 def Vgg19_simple_api(rgb, reuse):
+    import vgg19
     return vgg19.Vgg19_simple(rgb, reuse)
     
 
