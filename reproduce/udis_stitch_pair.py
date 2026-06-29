@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import cv2
+import numpy as np
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
@@ -24,6 +25,48 @@ DEFAULT_HOMO_CKPT_DIR = HOMO_CKPT_DIR
 DEFAULT_HOMO_CKPT_STEP = HOMO_CKPT_STEP
 DEFAULT_RECON_CKPT_DIR = RECON_CKPT_DIR
 DEFAULT_RECON_CKPT_STEP = RECON_CKPT_STEP
+
+
+def _read_image(path):
+    image = cv2.imread(path, cv2.IMREAD_COLOR)
+    if image is None:
+        raise RuntimeError('failed to read image: {}'.format(path))
+    return image
+
+
+def _read_mask(path):
+    mask = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if mask is None:
+        raise RuntimeError('failed to read mask: {}'.format(path))
+    return mask.astype(np.float32) / 255.0
+
+
+def render_natural_canvas_from_warp(warp_dir, out_path, name='000001.jpg'):
+    """Blend UDIS Stage-1 natural-size warp outputs into one inspectable canvas."""
+    warp1 = _read_image(os.path.join(warp_dir, 'warp1', name)).astype(np.float32)
+    warp2 = _read_image(os.path.join(warp_dir, 'warp2', name)).astype(np.float32)
+    mask1 = _read_mask(os.path.join(warp_dir, 'mask1', name))
+    mask2 = _read_mask(os.path.join(warp_dir, 'mask2', name))
+    if warp1.shape[:2] != warp2.shape[:2] or warp1.shape[:2] != mask1.shape[:2] or warp1.shape[:2] != mask2.shape[:2]:
+        raise RuntimeError('UDIS Stage-1 warp/mask sizes do not match in {}'.format(warp_dir))
+
+    mask1 = np.clip(mask1, 0.0, 1.0)
+    mask2 = np.clip(mask2, 0.0, 1.0)
+    denom = mask1 + mask2
+    out = np.zeros_like(warp1, dtype=np.float32)
+    valid = denom > 1e-3
+    out[valid] = (
+        warp1[valid] * mask1[valid, None] + warp2[valid] * mask2[valid, None]
+    ) / denom[valid, None]
+    out[~valid] = 0
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    cv2.imwrite(out_path, np.clip(out, 0, 255).astype(np.uint8))
+    return {
+        'renderer': 'udis_stage1_natural_canvas',
+        'width': int(out.shape[1]),
+        'height': int(out.shape[0]),
+    }
 
 
 def run_stage(script_dir, script, env_overrides):
@@ -116,7 +159,8 @@ def stitch_pair(left_path, right_path, out_path, work_dir, gpu, homo_ckpt_dir, h
         raise RuntimeError('UDIS did not produce panorama: {}'.format(src_pano))
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    shutil.copy2(src_pano, out_path)
+    shutil.copy2(src_pano, os.path.join(work_dir, 'udis_reconstruction_1024.jpg'))
+    render_natural_canvas_from_warp(warp_dir, out_path)
 
 
 def main():

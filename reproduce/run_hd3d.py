@@ -29,6 +29,7 @@ from reproduce.hd3d_eval import (
     load_niqe_metric,
 )
 from reproduce.paths import HOMO_CKPT_DIR, RECON_CKPT_DIR, HOMO_CKPT_STEP, RECON_CKPT_STEP
+from reproduce.udis_stitch_pair import render_natural_canvas_from_warp
 
 METHOD = 'UDIS'
 DEFAULT_MANIFEST = r'D:\HD3D_Result\_work\manifest.csv'
@@ -142,7 +143,7 @@ def base_row(row: dict[str, str], out_dir: Path, args: argparse.Namespace) -> di
         'alignment_inliers': '',
         'valid_mask_strategy': '',
         'lpips_max_side': args.lpips_max_side,
-        'raw_path': str(out_dir / 'raw.png'),
+        'raw_path': str(out_dir / 'stitch_result.png'),
         'aligned_path': '',
         'valid_mask_path': '',
         'gt_path': row['gt_path'],
@@ -154,14 +155,14 @@ def base_row(row: dict[str, str], out_dir: Path, args: argparse.Namespace) -> di
     }
 
 
-def run_udis_stitch(left: str, right: str, raw_path: Path, work_dir: Path, args: argparse.Namespace) -> None:
+def run_udis_stitch(left: str, right: str, stitch_path: Path, work_dir: Path, args: argparse.Namespace) -> None:
     script = str(REPO_ROOT / 'reproduce' / 'udis_stitch_pair.py')
     if args.udis_python == 'conda':
         cmd = [
             'conda', 'run', '-n', args.udis_env, 'python', script,
             '--left', left,
             '--right', right,
-            '--out', str(raw_path),
+            '--out', str(stitch_path),
             '--work-dir', str(work_dir),
             '--gpu', args.gpu,
             '--homo-ckpt-dir', args.homo_ckpt_dir,
@@ -174,7 +175,7 @@ def run_udis_stitch(left: str, right: str, raw_path: Path, work_dir: Path, args:
             args.udis_python, script,
             '--left', left,
             '--right', right,
-            '--out', str(raw_path),
+            '--out', str(stitch_path),
             '--work-dir', str(work_dir),
             '--gpu', args.gpu,
             '--homo-ckpt-dir', args.homo_ckpt_dir,
@@ -190,13 +191,39 @@ def run_udis_stitch(left: str, right: str, raw_path: Path, work_dir: Path, args:
 
 
 def cache_hit(out_dir: Path, args: argparse.Namespace) -> bool:
-    status = load_json(out_dir / 'method_status.json')
+    work_dir = out_dir / 'work'
+    status = load_json(work_dir / 'method_status.json') or load_json(out_dir / 'method_status.json')
     return (
         not args.force
         and status.get('success')
-        and (out_dir / 'raw.png').exists()
-        and (out_dir / 'metrics.json').exists()
+        and ((out_dir / 'stitch_result.png').exists() or (out_dir / 'raw.png').exists())
+        and ((work_dir / 'metrics.json').exists() or (out_dir / 'metrics.json').exists())
     )
+
+
+def load_cached_metrics(out_dir: Path) -> dict[str, Any]:
+    return load_json(out_dir / 'work' / 'metrics.json') or load_json(out_dir / 'metrics.json')
+
+
+def legacy_pair_work(row: dict[str, str], work_root: Path) -> Path:
+    return work_root / METHOD / row['pair_name']
+
+
+def render_from_existing_work(row: dict[str, str], stitch_path: Path, pair_work: Path,
+                              work_root: Path) -> dict[str, Any]:
+    legacy_work = legacy_pair_work(row, work_root)
+    source_work = pair_work if (pair_work / 'warp').exists() else legacy_work
+    warp_dir = source_work / 'warp'
+    if not warp_dir.exists():
+        raise RuntimeError('missing UDIS Stage-1 work for natural canvas: {}'.format(warp_dir))
+    info = render_natural_canvas_from_warp(str(warp_dir), str(stitch_path))
+    recon = source_work / 'panorama' / '000001.jpg'
+    if recon.exists():
+        pair_work.mkdir(parents=True, exist_ok=True)
+        target = pair_work / 'udis_reconstruction_1024.jpg'
+        if recon.resolve() != target.resolve():
+            shutil.copy2(recon, target)
+    return info
 
 
 def process_pair(row: dict[str, str], result_root: Path, work_root: Path,
@@ -204,13 +231,13 @@ def process_pair(row: dict[str, str], result_root: Path, work_root: Path,
     started = time.perf_counter()
     out_dir = result_root / row['scene'] / 'pair_{}'.format(row['pair_id']) / METHOD
     out_dir.mkdir(parents=True, exist_ok=True)
-    raw_path = out_dir / 'raw.png'
-    metrics_path = out_dir / 'metrics.json'
-    status_path = out_dir / 'method_status.json'
-    pair_work = work_root / METHOD / row['pair_name']
+    stitch_path = out_dir / 'stitch_result.png'
+    metrics_path = out_dir / 'work' / 'metrics.json'
+    status_path = out_dir / 'work' / 'method_status.json'
+    pair_work = out_dir / 'work'
 
     if cache_hit(out_dir, args):
-        metrics = load_json(metrics_path)
+        metrics = load_cached_metrics(out_dir)
         return {key: metrics.get(key, '') for key in PER_PAIR_FIELDS}
 
     result = base_row(row, out_dir, args)
@@ -222,18 +249,24 @@ def process_pair(row: dict[str, str], result_root: Path, work_root: Path,
         'failure_reason': '',
     }
     try:
-        if pair_work.exists():
+        if args.force and pair_work.exists():
             shutil.rmtree(pair_work)
-        run_udis_stitch(row['left_source'], row['right_source'], raw_path, pair_work, args)
+        if args.reuse_existing_work:
+            render_info = render_from_existing_work(row, stitch_path, pair_work, work_root)
+        else:
+            pair_work.mkdir(parents=True, exist_ok=True)
+            run_udis_stitch(row['left_source'], row['right_source'], stitch_path, pair_work, args)
+            render_info = {'renderer': 'udis_stage1_natural_canvas'}
 
-        full_raw = cv2.imread(str(raw_path), cv2.IMREAD_COLOR)
+        full_raw = cv2.imread(str(stitch_path), cv2.IMREAD_COLOR)
         if full_raw is None:
-            raise RuntimeError('failed to read stitched output: {}'.format(raw_path))
+            raise RuntimeError('failed to read stitched output: {}'.format(stitch_path))
         downsampled, raw_info = downsample_to_megapixels(full_raw, args.raw_target_megapixels)
-        cv2.imwrite(str(raw_path), downsampled)
+        if raw_info.get('raw_scale') != 1.0:
+            cv2.imwrite(str(stitch_path), downsampled)
 
         eval_info = evaluate_raw(
-            raw_path, Path(row['gt_path']), out_dir, niqe_metric, lpips_metric,
+            stitch_path, Path(row['gt_path']), out_dir, niqe_metric, lpips_metric,
             feature_max_side=args.feature_max_side,
             min_alignment_inliers=args.min_alignment_inliers,
             min_valid_ratio=args.min_valid_ratio,
@@ -248,12 +281,13 @@ def process_pair(row: dict[str, str], result_root: Path, work_root: Path,
             'status': 'success',
             'failure_reason': '',
             'runtime_seconds': runtime,
-            'raw_path': str(raw_path),
+            'raw_path': str(stitch_path),
             'cpp_mdr': math.nan,
             'cpp_warping_residual_avg': math.nan,
             'cpp_warping_residual_sd': math.nan,
+            'renderer': render_info.get('renderer', 'udis_stage1_natural_canvas'),
         })
-        status.update({'success': True, 'runtime_seconds': runtime, 'raw_path': str(raw_path), **raw_info})
+        status.update({'success': True, 'runtime_seconds': runtime, 'raw_path': str(stitch_path), **raw_info, **render_info})
     except Exception as exc:
         result['failure_reason'] = str(exc)
         result['runtime_seconds'] = time.perf_counter() - started
@@ -378,9 +412,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--min-niqe-side', type=int, default=96)
     parser.add_argument('--valid-black-threshold', type=int, default=5)
     parser.add_argument('--lpips-max-side', type=int, default=1024)
-    parser.add_argument('--raw-target-megapixels', type=float, default=0.70)
+    parser.add_argument('--raw-target-megapixels', type=float, default=0.0)
     parser.add_argument('--max-side', type=int, default=0,
                         help='optional max image side before UDIS stitching (0 = native resolution)')
+    parser.add_argument('--reuse-existing-work', action='store_true',
+                        help='render/evaluate from existing Stage-1 UDIS work instead of invoking TF inference')
     return parser
 
 
